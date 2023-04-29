@@ -1,0 +1,151 @@
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+void cleanup( void );
+void SIGINT_handler( int sig );
+#define BUF_SIZE (100*1024*1024)
+
+
+/* SIGINT handler for the client */
+void SIGINT_handler( int sig ) {
+
+   /* Issue an error */
+   fprintf( stderr, "client: Client interrupted. Shutting down.\n" );
+
+     /* Other things you could do to 'clean up':
+    * 1) Release ANY preallocated memory by calling 'free()'.
+    * 2) Close any open FILE descriptors.
+    * 3) Close any open SOCKETS (all peer sockets obtained via 'accept()' as well
+    *    as the primary LISTENING socket.
+    * 4) Set all memory pointers to NULL and descriptors (Files and Socket) to -1 to
+    *    indicate via their variables these have been 'released' and NO LONGER 'valid'.
+    */
+
+   /* Cleanup after yourself */
+   cleanup();
+
+   /* Exit for 'reals' */
+   exit( EXIT_FAILURE );
+
+} /* end SIGINT_handler() */
+
+
+void cleanup( void ){
+    if (buf != NULL){
+        free( buf );
+        buf = NULL;
+    }
+
+    if( fd_in >= 0){
+        close( fd_in );
+        fd_in = -1;
+    }
+    if( fd_out >= 0){
+        close( fd_out );
+        fd_out = -1;
+    }
+}
+
+
+int main(){
+
+    int sockfd = -1;
+    struct sockaddr_in addr;
+    struct in_addr ia;
+    const char *port_str = "4020";
+    int cl_sockfd;
+    struct sockaddr_in cl_sa
+
+    int sockfd = socket( AF_INET, SOCK_STREAM, 0);
+
+    if( sockfd < 0 ){
+        fprintf( stderr, "ERROR: Unable to obtain a new socket.\n");
+    }
+
+    unsigned short int port = (unsigned short int) atoi( port_str );
+
+    ia.s_addr = inet_addr( "127.0.0.1" );
+    addr.sin_family = AF_INET;
+    addr.sin_addr = ia;
+
+    addr.sin_port = htons( port );
+
+
+    if( bind( sockfd, (struct sockaddr *) &addr, sizeof( addr ) ) != 0 ){
+        fprintf( stderr, "ERROR: Socket binding failed.\n");
+    }
+    else{
+        printf( "Socket binding successful.\n");
+    }
+
+
+    if( listen( sockfd, 32 ) != 0 ){
+        fprintf( stderr, "ERROR: Could not turn socket into a listening socket.\n");
+    }
+
+
+    socklen_t cl_sa_size = sizeof( cl_sa );
+
+    memset( (void *) &cl_sa, 0, sizeof( cl_sa ) );
+
+    while(1){
+
+        cl_sockfd = accept( listen_sockfd, (struct sockaddr *) &cl_sa, &cl_sa_size );
+
+        if( cl_sockfd > 0 ){
+            char *outbuf = NULL;
+            char *inbuf = NULL;
+            int bytes_read;
+            int bytes_sent;
+
+
+            outbuf = (void *) malloc( BUF_SIZE );
+            inbuf = (void *) malloc( BUF_SIZE );
+
+            if( ( inbuf == NULL ) || ( outbuf == NULL ) ){
+                fprintf( stderr, "ERROR: Failed to allocate memory for buffers.\n");
+                exit( EXIT_FAILURE );
+            }
+
+            /*1) Read out the socket.*/
+            bytes_read = recv( sockfd, (void *) inbuf, BUF_SIZE, MSG_WAITALL );
+
+            if( bytes_read > 0){
+                /* Something goes here*/
+            }
+            else if( bytes_read == 0){
+                close(cl_sockfd);
+            }
+            else{
+                fprintf( stderr, "ERROR: An error ocurred while reading from socket: %d\n", cl_sockfd);
+            }
+
+            /*2) Maybe 'process the data/request' in some way...*/
+
+            /*3) Maybe 'reply'.*/
+            bytes_sent = send(cl_sockfd, (const void *) outbuf, 1024, 0 );
+
+            if( bytes_sent != 1024 ){
+                fprintf( stderr, "ERROR: send(): Failed to send all data.\n");
+            }
+
+            /*4) Maybe 'close' the socket so we can accept the next one.*/
+            close(cl_sockfd);
+        }
+        else{
+            fprintf( stderr, "ERROR: accept(): Connection request failed.\n");
+        }
+
+    }
+
+    close(cl_sockfd);
+
+    return 0;
+
+}
