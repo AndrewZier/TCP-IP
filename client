@@ -1,0 +1,115 @@
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+#define BUF_SIZE (100*1024*1024)
+void cleanup( void );
+void SIGINT_handler( int sig );
+
+/* SIGINT handler for the client */
+void SIGINT_handler( int sig ) {
+
+   /* Issue an error */
+   fprintf( stderr, "client: Client interrupted. Shutting down.\n" );
+
+   /* Cleanup after yourself */
+   cleanup();
+
+   /* Exit for 'reals' */
+   exit( EXIT_FAILURE );
+
+} /* end SIGINT_handler() */
+
+void cleanup( void ){
+    if (buf != NULL){
+        free( buf );
+        buf = NULL;
+    }
+
+    if( fd_in >= 0){
+        close( fd_in );
+        fd_in = -1;
+    }
+    if( fd_out >= 0){
+        close( fd_out );
+        fd_out = -1;
+    }
+}
+
+int main(){
+
+    struct in_addr ia;
+    struct sockaddr_in saddr;
+    int sockfd = -1;
+    const char *port_str = "4020";
+    char *inbuf = NULL;
+    char *outbuf = NULL;
+    int bytes_sent;
+    int bytes_read;
+
+    sockfd = socket( AF_INET, SOCK_STREAM, 0);
+
+    if( sockfd < 0){
+        fprintf( stderr, "ERROR: Unable to obtain a new socket.\n")
+    }
+
+    unsigned short int port = (unsigned short int) atoi( port_str );
+
+    ia.s_addr = inet_addr( "127.0.0.1" );
+    saddr.sin_family = AF_INET;
+    saddr.sin_addr = ia;
+
+    saddr.sin_port = htons( port );
+
+
+    if (connect( sockfd, (struct sockaddr *) &saddr, sizeof( saddr ) ) != 0){
+        fprintf( stderr, "ERROR: Attempting to connect with the server. \n");
+    }
+    else{
+        fprintf("Connected to server.\n");
+    }
+
+
+    inbuf = (void *) malloc( BUF_SIZE );
+    outbuf = (void *) malloc( BUF_SIZE );
+
+    if( ( inbuf == NULL ) || ( outbuf == NULL ) ){
+        fprintf( stderr, "ERROR: Failed to allocate memory for buffers.\n");
+        exit( EXIT_FAILURE );
+    }
+
+
+    bytes_sent = send( sockfd, (const void *) outbuf, 1024, 0);
+
+    if ( bytes_sent != 1024){
+        fprintf( stderr, "ERROR: send(): Failed to send all data.\n")
+    }
+    else{
+        printf( "File sent successfully.\n")
+    }
+
+
+    bytes_read = recv( sockfd, (void *) inbuf, BUF_SIZE, MSG_WAITALL);
+
+    if (bytes_read > 0){
+        ///////////
+    }
+    else if( bytes_read == 0){
+        close( sockfd );
+    }
+    else{
+        fprintf( stderr, "ERROR: An error ocurred while reading from socket: %d\n", sockfd);
+    }
+
+
+    close( sockfd );
+
+
+    return 0;
+
+}
